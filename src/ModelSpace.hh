@@ -220,11 +220,13 @@ class ModelSpace
    int GetE3max(){return E3max;};
    int GetLmax2(){return Lmax2;};
    int GetLmax3(){return Lmax3;};
+   bool GetNuclear(){return isNuclear;};
    void SetEmax(int e){Emax=e;};
    void SetE2max(int e){E2max=e;};
    void SetE3max(int e){E3max=e;};
    void SetLmax2(int l){Lmax2=l;};
    void SetLmax3(int l){Lmax3=l;};
+   void SetNuclear(bool nuclear){isNuclear=nuclear;};
 
    double GetSixJ(double j1, double j2, double j3, double J1, double J2, double J3);
    double GetNineJ(double j1, double j2, double j3, double j4, double j5, double j6, double j7, double j8, double j9);
@@ -299,6 +301,7 @@ class ModelSpace
    vector<Ket> Kets;
    vector<TwoBodyChannel> TwoBodyChannels;
    vector<TwoBodyChannel_CC> TwoBodyChannels_CC;
+   bool isNuclear;
 //   map<long int,double> SixJList;
 
    static unordered_map<unsigned long int,double> SixJList;

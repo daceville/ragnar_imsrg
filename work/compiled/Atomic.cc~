@@ -84,6 +84,7 @@ int main(int argc, char** argv)
   rw.SetLECs_preset(LECs);
   rw.SetScratchDir(scratch);
   ModelSpace modelspace = reference=="default" ? ModelSpace(eMax,valence_space) : ModelSpace(eMax,reference,valence_space);
+  modelspace.SetNuclear(false);
 
   if (nsteps < 0)
     nsteps = modelspace.valence.size()>0 ? 2 : 1;
@@ -169,6 +170,8 @@ int main(int argc, char** argv)
       else if (opname == "Rp2")          ops.emplace_back( Rp2_corrected_Op(modelspace,modelspace.GetTargetMass(),modelspace.GetTargetZ()) );
       else if (opname == "Rn2")          ops.emplace_back( Rn2_corrected_Op(modelspace,modelspace.GetTargetMass(),modelspace.GetTargetZ()) );
       else if (opname == "Rm2")          ops.emplace_back( Rm2_corrected_Op(modelspace,modelspace.GetTargetMass(),modelspace.GetTargetZ()) );
+      else if (opname == "TCM_Op")     	 ops.emplace_back( TCM_Op(modelspace) );
+      else if (opname == "InverseR")ops.emplace_back( InverseR_Op(modelspace) );
       else if (opname == "E2")           ops.emplace_back( ElectricMultipoleOp(modelspace,2) );
       else if (opname == "M1")           ops.emplace_back( MagneticMultipoleOp(modelspace,1) );
       else if (opname == "Fermi")        ops.emplace_back( AllowedFermi_Op(modelspace) );

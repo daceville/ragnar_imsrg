@@ -192,6 +192,10 @@ Operator KineticEnergy_Op(ModelSpace& modelspace)
    int A = modelspace.GetTargetMass();
    Operator TcmOp = Operator(modelspace);
    TcmOp.SetHermitian();
+   int Mu;
+   // If we are in a nuclear system, us total mass, otherwise, use reduced mass;ß
+   if(modelspace.GetNuclear()) Mu = A;
+   else Mu = M_ELECTRON*A/(M_ELECTRON+A);
    // One body piece = p**2/(2mA)
    int norb = modelspace.GetNumberOrbits();
    for (int i=0; i<norb; ++i)
@@ -202,8 +206,8 @@ Operator KineticEnergy_Op(ModelSpace& modelspace)
          Orbit & oj = modelspace.GetOrbit(j);
          if (j<i) continue;
          double tij = 0;
-         if (oi.n == oj.n) tij = 0.5*(2*oi.n+oi.l + 1.5) * hw/A;
-         else if (oi.n == oj.n-1) tij = 0.5*sqrt(oj.n*(oj.n+oj.l + 0.5)) * hw/A;
+         if (oi.n == oj.n) tij = 0.5*(2*oi.n+oi.l + 1.5) * hw/Mu;
+         else if (oi.n == oj.n-1) tij = 0.5*sqrt(oj.n*(oj.n+oj.l + 0.5)) * hw/Mu;
          TcmOp.OneBody(i,j) = tij;
          TcmOp.OneBody(j,i) = tij;
       }
@@ -1135,8 +1139,23 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
     return GT;
   }
 
-
-
+// Creates an operator that performs 1/r, using Kramers Relation for an atomic system
+// For orbital n, in an atom with Z protons, expectation of 1/r = 1/(aZn^2)
+  Operator InverseR_Op(ModelSpace& modelspace)
+  {
+     Operator InvR(modelspace);
+     int norbits = modelspace.GetNumberOrbits();
+     for (int i=0; i<norbits; i++)
+     {
+        Orbit& oi = modelspace.GetOrbit(i);
+        for (int j=0; j<norbits; j++)
+	{
+	   if (i==j) InvR.OneBody(i,j) = 1/(oi.n * oi.index * oi.index);
+	   else InvR.OneBody(i,j) = 0;
+	}
+     }
+     return InvR * 1/(BOHR_RADIUS * modelspace.GetZref() );
+  }
 
   void Reduce(Operator& X)
   {

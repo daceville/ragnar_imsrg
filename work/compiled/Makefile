@@ -12,7 +12,7 @@ ifeq ($(DEBUG),on)
 endif
 
 all: exe
-exe: Universal
+exe: Atomic
 
 %:	%.cc
 	$(CC) $(INCLUDE) $^ -o $@ $(FLAGS) $(LIBS)

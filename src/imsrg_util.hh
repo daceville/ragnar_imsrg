@@ -12,6 +12,8 @@
 
 #define HBARC 197.3269718 // hc in MeV * fm
 #define M_NUCLEON 938.9185 // average nucleon mass in MeV
+#define M_ELECTRON 0.510998910 // average electron mass in MeV
+#define BOHR_RADIUS 0.0529 // Bohr radius in nm
 
 namespace imsrg_util
 {
@@ -42,6 +44,7 @@ namespace imsrg_util
  Operator Isospin2_Op(ModelSpace& modelspace);
  Operator AllowedFermi_Op(ModelSpace& modelspace);
  Operator AllowedGamowTeller_Op(ModelSpace& modelspace);
+ Operator InverseR_Op(ModelSpace& modelspace);
 
  Operator Single_Ref_1B_Density_Matrix(ModelSpace& modelspace); // This doesn't work
  double Get_Charge_Density(Operator& DM, double r);  // This doesn't work
