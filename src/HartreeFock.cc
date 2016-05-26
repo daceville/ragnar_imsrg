@@ -17,36 +17,45 @@ HartreeFock::HartreeFock(Operator& hbare)
     tolerance(1e-8), convergence_ediff(7,0), convergence_EHF(7,0)
 {
    int norbits = modelspace->GetNumberOrbits();
+   bool isNuclear = modelspace->GetNuclear();
 
+   
    C             = arma::mat(norbits,norbits,arma::fill::eye);
    Vij           = arma::mat(norbits,norbits,arma::fill::zeros);
    V3ij          = arma::mat(norbits,norbits,arma::fill::zeros);
    F             = arma::mat(norbits,norbits);
-   for (int Tz=-1;Tz<=1;++Tz)
-   {
-     for (int parity=0; parity<=1; ++parity)
-     {
-       int nKetsMon = modelspace->MonopoleKets[Tz+1][parity].size();
-       Vmon[Tz+1][parity] = arma::mat(nKetsMon,nKetsMon);
-       Vmon_exch[Tz+1][parity] = arma::mat(nKetsMon,nKetsMon);
-     }
-   }
-   prev_energies = arma::vec(norbits,arma::fill::zeros);
-   vector<index_t> hvec;
-   vector<double> occvec;
-   for (auto& it_h : modelspace->holes)
-   {
-     hvec.push_back(it_h.first);
-     occvec.push_back(it_h.second);
-   }
-   holeorbs = arma::uvec(hvec);
-   hole_occ = arma::rowvec(occvec);
+   //if (isNuclear){ // If it is a nuclear system:
+      for (int Tz=-1;Tz<=1;++Tz)
+      {
+         for (int parity=0; parity<=1; ++parity)
+         {
+            int nKetsMon = modelspace->MonopoleKets[Tz+1][parity].size();
+            Vmon[Tz+1][parity] = arma::mat(nKetsMon,nKetsMon);
+            Vmon_exch[Tz+1][parity] = arma::mat(nKetsMon,nKetsMon);
+         }
+      }
+      prev_energies = arma::vec(norbits,arma::fill::zeros);
+      vector<index_t> hvec;
+      vector<double> occvec;
+      for (auto& it_h : modelspace->holes)
+      {
+         hvec.push_back(it_h.first);
+         occvec.push_back(it_h.second);
+      }
+      holeorbs = arma::uvec(hvec);
+      hole_occ = arma::rowvec(occvec);
 //   holeorbs = arma::uvec(modelspace->holes);
-   BuildMonopoleV();
-   if (hbare.GetParticleRank()>2)
-   {
-      BuildMonopoleV3();
-   }
+      BuildMonopoleV();
+      if (hbare.GetParticleRank()>2)
+      {
+         BuildMonopoleV3();
+      }
+   //} else if (!isNuclear){ // if it is not nuclear (ie., atomic):
+
+
+      
+   //}
+
    UpdateDensityMatrix();
    UpdateF();
 

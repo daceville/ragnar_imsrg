@@ -254,6 +254,7 @@ class ModelSpace
    vector<index_t> qspace;          // above the valence space for decoupling
    vector<index_t> proton_orbits;
    vector<index_t> neutron_orbits;
+   vector<index_t> electron_orbits;
 
    vector<index_t> KetIndex_pp; 
    vector<index_t> KetIndex_ph;
