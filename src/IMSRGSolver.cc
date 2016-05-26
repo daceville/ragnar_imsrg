@@ -152,7 +152,7 @@ void IMSRGSolver::Solve_magnus_euler()
 
    if (generator.GetType() == "shell-model-atan")
    {
-     generator.SetDenominatorCutoff(1.0);
+     generator.SetDenominatorCutoff(1.0); // do we need this?
    }
 
     // Write details of the flow
@@ -163,7 +163,6 @@ void IMSRGSolver::Solve_magnus_euler()
    {
 
       double norm_eta = Eta.Norm();
-//      double norm_omega = Omega.Norm();
       if (norm_eta < eta_criterion )
       {
         break;
@@ -197,7 +196,7 @@ void IMSRGSolver::Solve_magnus_euler()
 
       if (norm_eta<1.0 and generator.GetType() == "shell-model-atan")
       {
-        generator.SetDenominatorCutoff(0.0);
+        generator.SetDenominatorCutoff(1e-6);
       }
         
       generator.Update(&FlowingOps[0],&Eta);
@@ -337,30 +336,34 @@ deque<Operator> abs(const deque<Operator>& OpIn)
 // Apply operation to each element of X and return the result
 // this is needed for ODE adaptive solver
 // USE THIS FOR BOOST VERSION < 1.56
-/*
+#ifdef OLD_BOOST
 namespace boost {namespace numeric {namespace odeint{
 template<>
-struct vector_space_reduce< Operator >
+struct vector_space_reduce< deque<Operator> >
 {
    template<class Op>
-   double operator()(const Operator& X, Op op, double init)
+   double operator()(const deque<Operator>& X, Op op, double init)
    {
-      init = op(init,X.ZeroBody);
-      for ( auto& v : X.OneBody )    init = op(init,v);
-      for ( auto& itmat : X.TwoBody.MatEl )
+      for (auto& x : X)
       {
-          for (auto& v : itmat.second )    init = op(init,v);
+        init = op(init,x.ZeroBody);
+        for ( auto& v : x.OneBody )    init = op(init,v);
+        for ( auto& itmat : x.TwoBody.MatEl )
+        {
+            for (auto& v : itmat.second )    init = op(init,v);
+        }
       }
       return init;
    }
 };
 }}}
-*/
+#endif
 
 // Apply operation to each element of X and return the result
 // this is needed for ODE adaptive solver
 // USE THIS FOR BOOST VERSION >= 1.56
 //struct vector_space_norm_inf< vector<Operator> >
+#ifndef OLD_BOOST
 namespace boost {namespace numeric {namespace odeint{
 template<>
 struct vector_space_norm_inf< deque<Operator> >
@@ -376,7 +379,7 @@ struct vector_space_norm_inf< deque<Operator> >
    }
 };
 }}}
-
+#endif
 
 void IMSRGSolver::Solve_ode()
 {
@@ -481,10 +484,8 @@ void IMSRGSolver::operator()( const deque<Operator>& x, deque<Operator>& dxdt, c
        dxdt[1].Erase();
        dxdt[1].comm221ss(Eta,x[0]);
        // keep only pp and hh parts of d chi/ ds
-//       for (auto& a : modelspace->holes)
-       for (auto& it_a : modelspace->holes)
+       for (auto& a : modelspace->holes)
        {
-         index_t a = it_a.first;
          for (auto& i : modelspace->particles)
          {
            dxdt[1].OneBody(a,i) = 0;
@@ -495,7 +496,6 @@ void IMSRGSolver::operator()( const deque<Operator>& x, deque<Operator>& dxdt, c
        {
          dxdt[i] = Commutator(Eta,x[i]);
        }
-//       cout << "Made it out of the first iteration" << endl;
      }
 
    }

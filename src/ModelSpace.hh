@@ -176,13 +176,16 @@ class ModelSpace
    // Methods
 
    void Init(int emax, string reference, string valence);
+   void Init(int emax, map<index_t,double> hole_list, string valence);
    void Init(int emax, map<index_t,double> hole_list, vector<index_t> core_list, vector<index_t> valence_list);
    void Init(int emax, vector<string> hole_list, vector<string> core_list, vector<string> valence_list);
+   void Init_occ_from_file(int emax, string valence, string occ_file);
 
 //   vector<index_t> GetOrbitsAZ(int A, int Z);
    map<index_t,double> GetOrbitsAZ(int A, int Z);
    void GetAZfromString(string str, int& A, int& Z);
    vector<index_t> String2Index( vector<string> vs );
+   string Index2String(index_t ind);
    void Get0hwSpace(int Aref, int Zref, vector<index_t>& core_list, vector<index_t>& valence_list);
 
    void SetupKets();
@@ -244,8 +247,8 @@ class ModelSpace
 
 
    // Data members
-//   vector<index_t> holes;           // in the reference Slater determinant
-   map<index_t,double> holes;           // in the reference Slater determinant
+   vector<index_t> holes;           // in the reference Slater determinant
+//   map<index_t,double> holes;           // in the reference Slater determinant
    vector<index_t> particles;       // above the reference Slater determinant
    vector<index_t> core;            // core for decoupling
    vector<index_t> valence;         // valence space for decoupling

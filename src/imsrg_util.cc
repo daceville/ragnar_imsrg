@@ -9,6 +9,101 @@ using namespace AngMom;
 namespace imsrg_util
 {
 
+
+ Operator OperatorFromString(ModelSpace& modelspace, string opname)
+ {
+           if (opname == "R2_p1")         return R2_1body_Op(modelspace,"proton") ;
+      else if (opname == "R2_p2")         return R2_2body_Op(modelspace,"proton") ;
+      else if (opname == "R2_n1")         return R2_1body_Op(modelspace,"neutron") ;
+      else if (opname == "R2_n2")         return R2_2body_Op(modelspace,"neutron") ;
+      else if (opname == "Rp2")           return Rp2_corrected_Op(modelspace,modelspace.GetTargetMass(),modelspace.GetTargetZ()) ;
+      else if (opname == "Rn2")           return Rn2_corrected_Op(modelspace,modelspace.GetTargetMass(),modelspace.GetTargetZ()) ;
+      else if (opname == "Rm2")           return Rm2_corrected_Op(modelspace,modelspace.GetTargetMass(),modelspace.GetTargetZ()) ;
+      else if (opname == "E2")            return ElectricMultipoleOp(modelspace,2) ;
+      else if (opname == "M1")            return MagneticMultipoleOp(modelspace,1) ;
+      else if (opname == "Fermi")         return AllowedFermi_Op(modelspace) ;
+      else if (opname == "GamowTeller")   return AllowedGamowTeller_Op(modelspace) ;
+      else if (opname == "Iso2")          return Isospin2_Op(modelspace) ;
+      else if (opname == "R2CM")          return R2CM_Op(modelspace) ;
+      else if (opname == "HCM")           return HCM_Op(modelspace) ;
+      else if (opname == "Rso")           return RpSpinOrbitCorrection(modelspace) ;
+      else if (opname == "RadialOverlap") return RadialOverlap(modelspace);
+      else if (opname.substr(0,4) == "HCM_") // GetHCM with a different frequency, ie HCM_24 for hw=24
+      {
+         double hw_HCM; // frequency of trapping potential
+         istringstream(opname.substr(4,opname.size())) >> hw_HCM;
+         int A = modelspace.GetTargetMass();
+         return TCM_Op(modelspace) + 0.5*A*M_NUCLEON*hw_HCM*hw_HCM/HBARC/HBARC*R2CM_Op(modelspace); 
+      }
+      else if (opname.substr(0,4) == "Rp2Z") // Get point proton radius for specified Z, e.g. Rp2Z10 for neon
+      {
+        int Z_rp;
+        istringstream(opname.substr(4,opname.size())) >> Z_rp;
+        return Rp2_corrected_Op(modelspace,modelspace.GetTargetMass(),Z_rp) ;
+      }
+      else if (opname.substr(0,4) == "Rn2Z") // Get point neutron radius for specified Z
+      {
+        int Z_rp;
+        istringstream(opname.substr(4,opname.size())) >> Z_rp;
+        return Rn2_corrected_Op(modelspace,modelspace.GetTargetMass(),Z_rp) ;
+      }
+      else if (opname.substr(0,4) == "rhop") // point radius density at position r, e.g. rhop1.25
+      {
+        double rr;
+        istringstream(opname.substr(4,opname.size())) >> rr;
+        return ProtonDensityAtR(modelspace,rr);
+      }
+      else if (opname.substr(0,4) == "rhon") // point radius density at position r
+      {
+        double rr;
+        istringstream(opname.substr(4,opname.size())) >> rr;
+        NeutronDensityAtR(modelspace,rr);
+      }
+      else if (opname.substr(0,6) == "OneOcc") // Get occupation of specified orbit, e.g. OneOccp1p3
+      {
+         map<char,int> lvals = {{'s',0},{'p',1},{'d',2},{'f',3},{'g',4},{'h',5}};
+         char pn,lspec;
+         int n,l,j,t;
+         istringstream(opname.substr(6,1)) >> pn;
+         istringstream(opname.substr(7,1)) >> n;
+         istringstream(opname.substr(8,1)) >> lspec;
+         istringstream(opname.substr(9,opname.size())) >> j;
+         l = lvals[lspec];
+         t = pn == 'p' ? -1 : 1;
+         return NumberOp(modelspace,n,l,j,t) ;
+      }
+      else if (opname.substr(0,6) == "AllOcc") // Get occupation of orbit, summed over all values of radial quantum number n, e.g. AllOccpp3
+      {
+         map<char,int> lvals = {{'s',0},{'p',1},{'d',2},{'f',3},{'g',4},{'h',5}};
+         char pn,lspec;
+         int l,j,t;
+         istringstream(opname.substr(6,1)) >> pn;
+         istringstream(opname.substr(7,1)) >> lspec;
+         istringstream(opname.substr(8,opname.size())) >> j;
+         l = lvals[lspec];
+         t = pn == 'p' ? -1 : 1;
+         return NumberOpAlln(modelspace,l,j,t) ;
+      }
+      else if (opname.substr(0,9) == "protonFBC") // Fourier bessel coefficient of order nu
+      {
+         int nu;
+         istringstream(opname.substr(9,opname.size())) >> nu;
+         return FourierBesselCoeff( modelspace, nu, 8.0, modelspace.proton_orbits);
+      }
+      else if (opname.substr(0,10) == "neutronFBC") // Fourier bessel coefficient of order nu
+      {
+         int nu;
+         istringstream(opname.substr(10,opname.size())) >> nu;
+         return FourierBesselCoeff( modelspace, nu, 8.0, modelspace.neutron_orbits) ;
+      }
+      else //need to remove from the list
+      {
+         cout << "Unknown operator: " << opname << endl;
+      }
+      return Operator();
+ 
+ }
+
  Operator NumberOp(ModelSpace& modelspace, int n, int l, int j2, int tz2)
  {
    Operator NumOp = Operator(modelspace);
@@ -111,9 +206,9 @@ double HO_Radial_psi(int n, int l, double hw, double r)
  {
     Operator DM(modelspace,0,0,0,2);
 //    for (index_t a : modelspace.holes)
-    for (auto& it_a : modelspace.holes)
+    for (auto& a : modelspace.holes)
     {
-       index_t a = it_a.first;
+//       index_t a = it_a.first;
        DM.OneBody(a,a) = 1.0;
     }
     return DM;
@@ -197,7 +292,7 @@ Operator KineticEnergy_Op(ModelSpace& modelspace)
    for (int i=0; i<norb; ++i)
    {
       Orbit & oi = modelspace.GetOrbit(i);
-      for (int j : modelspace.OneBodyChannels.at({oi.l,oi.j2,oi.tz2}) )
+      for (int j : TcmOp.OneBodyChannels.at({oi.l,oi.j2,oi.tz2}) )
       {
          Orbit & oj = modelspace.GetOrbit(j);
          if (j<i) continue;
@@ -521,7 +616,7 @@ Operator KineticEnergy_Op(ModelSpace& modelspace)
    for (unsigned int i=0; i<norb; ++i)
    {
       Orbit & oi = modelspace.GetOrbit(i);
-      for (auto j : modelspace.OneBodyChannels.at({oi.l, oi.j2, oi.tz2}) )
+      for (auto j : R2cmOp.OneBodyChannels.at({oi.l, oi.j2, oi.tz2}) )
       {
          if (j<i) continue;
          Orbit & oj = modelspace.GetOrbit(j);
@@ -932,7 +1027,8 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
     Orbit& oi = modelspace.GetOrbit(i);
     struct FBCIntegrandParameters params = {oi.n, oi.l, modelspace.GetHbarOmega()};
     F.params = &params;
-    int status = gsl_integration_qawo (&F, start, epsabs, epsrel, limit, workspace, table, &result, &abserr);
+    //int status = gsl_integration_qawo (&F, start, epsabs, epsrel, limit, workspace, table, &result, &abserr);
+    gsl_integration_qawo (&F, start, epsabs, epsrel, limit, workspace, table, &result, &abserr);
     a_nu.OneBody(i,i) = M_PI*M_PI/R/R/R * R/nu/M_PI*(result);
     cout << "orbit,nu = " << i << "," << nu << "  => " << a_nu.OneBody(i,i) << "  from " << result << " (" << abserr << ")" << endl;
   }
@@ -1020,6 +1116,7 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
   Operator ElectricMultipoleOp(ModelSpace& modelspace, int L)
   {
     Operator EL(modelspace, L,0,L%2,2);
+    double bL = pow( HBARC*HBARC/M_NUCLEON/modelspace.GetHbarOmega(),0.5*L); // b^L where b=sqrt(hbar/mw)
     for (int i : modelspace.proton_orbits)
     {
       Orbit& oi = modelspace.GetOrbit(i);
@@ -1027,8 +1124,7 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
       {
         if (j<i) continue;
         Orbit& oj = modelspace.GetOrbit(j);
-        // multiply radial integra by b^L = (hbar/mw)^L/2
-        double r2int = RadialIntegral(oi.n,oi.l,oj.n,oj.l,L) * pow( HBARC*HBARC/M_NUCLEON/modelspace.GetHbarOmega(),0.5*L) ;
+        double r2int = RadialIntegral(oi.n,oi.l,oj.n,oj.l,L) * bL ;
         EL.OneBody(i,j) = modelspace.phase((oi.j2+1)/2) * sqrt( (oi.j2+1)*(oj.j2+1)*(2*L+1)/4./3.1415926) * AngMom::ThreeJ(oi.j2/2.0, L, oj.j2/2.0, 0.5,0, -0.5) * r2int;
         EL.OneBody(j,i) = modelspace.phase((oi.j2-oj.j2)/2) * EL.OneBody(i,j);
       }
@@ -1041,6 +1137,7 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
   {
     double gl[2] = {1.,0.};
     double gs[2] = {5.586, -3.826};
+    double bL = pow( HBARC*HBARC/M_NUCLEON/modelspace.GetHbarOmega(),0.5*(L-1));
     Operator ML(modelspace, L,0,(L+1)%2,2);
     if (L<1)
     {
@@ -1055,8 +1152,8 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
       {
         if (j<i) continue;
         Orbit& oj = modelspace.GetOrbit(j);
-        // multiply radial integral by b^L = (hbar/mw)^L/2
-        double r2int = RadialIntegral(oi.n,oi.l,oj.n,oj.l,L-1) * pow( HBARC*HBARC/M_NUCLEON/modelspace.GetHbarOmega(),0.5*(L-1));
+        // multiply radial integral by b^L-1 = (hbar/mw)^L-1/2
+        double r2int = RadialIntegral(oi.n,oi.l,oj.n,oj.l,L-1) * bL;
         int kappa = ( modelspace.phase(oi.l+(oi.j2+1)/2) * (oi.j2+1) + modelspace.phase(oj.l+(oj.j2+1)/2) * (oj.j2+1) )/2;
         ML.OneBody(i,j) = modelspace.phase((oi.j2+1)/2) * sqrt( (oi.j2+1)*(oj.j2+1)*(2*L+1)/4./3.1415926) * AngMom::ThreeJ(oi.j2/2.0, L, oj.j2/2.0, 0.5,0, -0.5)
                         * (L - kappa) *(gl[(oi.tz2+1)/2]*(1+kappa/(L+1))-0.5*gs[(oi.tz2+1)/2] )  * r2int;
@@ -1100,7 +1197,6 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
   {
     Operator Fermi(modelspace,0,1,0,2);
     Fermi.SetHermitian();
-    const double M_fermi = 1.0;
     int norbits = modelspace.GetNumberOrbits();
     for (int i=0; i<norbits; ++i)
     {
@@ -1109,12 +1205,18 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
       {
         Orbit& oj = modelspace.GetOrbit(j);
         if (oi.n!=oj.n or oi.tz2 == oj.tz2) continue;
-        Fermi.OneBody(i,j) = M_fermi;
+        Fermi.OneBody(i,j) = sqrt(oi.j2+1.0);  // Reduced matrix element
       }
     }
     return Fermi;
   }
 
+/// Note that there is a literature convention to include the 1/sqrt(Lambda) factor
+/// in the reduced matrix element rather than in the expression involving the sum
+/// over one-body densities (see footnote on pg 165 of Suhonen).
+/// I do not follow this convention, and instead produce the reduced matrix element
+///  \f[ \langle f \| \sigma \tau_{\pm} \| i \rangle \f]
+///
   Operator AllowedGamowTeller_Op(ModelSpace& modelspace)
   {
     Operator GT(modelspace,1,1,0,2);
@@ -1137,6 +1239,66 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
 
 
 
+ /// Pauli spin operator \f[ \langle f \| \sigma \| i \rangle \f]
+ Operator Sigma_Op(ModelSpace& modelspace)
+ {
+   Operator Sig(modelspace,1,0,0,2);
+   Sig.SetHermitian();
+   int norbits = modelspace.GetNumberOrbits();
+   for (int i=0; i<norbits; ++i)
+   {
+     Orbit& oi = modelspace.GetOrbit(i);
+      for (int j : Sig.OneBodyChannels[{oi.l,oi.j2,oi.tz2}] )
+      {
+        Orbit& oj = modelspace.GetOrbit(j);
+        if (oi.n!=oj.n or oi.l != oj.l or oi.tz2==oj.tz2) continue;
+        double sixj = modelspace.GetSixJ(0.5,0.5,1.0,oj.j2/2.,oi.j2/2.,oi.l);
+        double M_sig = 2 * modelspace.phase(oi.l+oi.j2/2.0+1.5) * sqrt((oi.j2+1)*(oj.j2+1)) * sqrt(1.5) * sixj;
+        Sig.OneBody(i,j) = M_sig;
+      }
+   } 
+   return Sig;
+ }
+
+ /// Sigma operator acting on protons
+ Operator Sigma_p_Op(ModelSpace& modelspace)
+ {
+   Operator Sig(modelspace,1,0,0,2);
+   Sig.SetHermitian();
+   for ( auto& i: modelspace.proton_orbits )
+   {
+     Orbit& oi = modelspace.GetOrbit(i);
+      for (int j : Sig.OneBodyChannels[{oi.l,oi.j2,oi.tz2}] )
+      {
+        Orbit& oj = modelspace.GetOrbit(j);
+        if (oi.n!=oj.n or oi.l != oj.l or oi.tz2==oj.tz2) continue;
+        double sixj = modelspace.GetSixJ(0.5,0.5,1.0,oj.j2/2.,oi.j2/2.,oi.l);
+        double M_sig = 2 * modelspace.phase(oi.l+oi.j2/2.0+1.5) * sqrt((oi.j2+1)*(oj.j2+1)) * sqrt(1.5) * sixj;
+        Sig.OneBody(i,j) = M_sig;
+      }
+   } 
+   return Sig;
+ }
+
+ /// Sigma operator acting on neutrons
+ Operator Sigma_n_Op(ModelSpace& modelspace)
+ {
+   Operator Sig(modelspace,1,0,0,2);
+   Sig.SetHermitian();
+   for ( auto& i: modelspace.neutron_orbits )
+   {
+     Orbit& oi = modelspace.GetOrbit(i);
+      for (int j : Sig.OneBodyChannels[{oi.l,oi.j2,oi.tz2}] )
+      {
+        Orbit& oj = modelspace.GetOrbit(j);
+        if (oi.n!=oj.n or oi.l != oj.l or oi.tz2==oj.tz2) continue;
+        double sixj = modelspace.GetSixJ(0.5,0.5,1.0,oj.j2/2.,oi.j2/2.,oi.l);
+        double M_sig = 2 * modelspace.phase(oi.l+oi.j2/2.0+1.5) * sqrt((oi.j2+1)*(oj.j2+1)) * sqrt(1.5) * sixj;
+        Sig.OneBody(i,j) = M_sig;
+      }
+   } 
+   return Sig;
+ }
 
   void Reduce(Operator& X)
   {
@@ -1182,6 +1344,30 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
   }
 
 
+  Operator RadialOverlap(ModelSpace& modelspace)
+  {
+     Operator OVL(modelspace,0,1,0,1);
+     index_t norb = modelspace.GetNumberOrbits();
+     for (index_t i=0; i<norb; ++i)
+     {
+       Orbit& oi = modelspace.GetOrbit(i);
+       for (index_t j=0; j<norb; ++j)
+       {
+         Orbit& oj = modelspace.GetOrbit(j);
+         OVL.OneBody(i,j) = RadialIntegral(oi.n, oi.l, oj.n, oj.l, 0 ); // This is not quite right. Only works for li+lj=even.
+       } 
+     }
+     return OVL;
+  }
+
+
+  map<index_t,double> GetSecondOrderOccupations(Operator& H, int emax)
+  {
+    ModelSpace* modelspace = H.GetModelSpace();
+    map<index_t,double> hole_list;
+    cout << "GetSecondOrderOccupations : Not yet implemented" << endl;
+    return hole_list;
+  }
 
 
 

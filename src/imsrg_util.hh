@@ -15,6 +15,9 @@
 
 namespace imsrg_util
 {
+ Operator OperatorFromString(ModelSpace& modelspace, string str);
+ map<index_t,double> GetSecondOrderOccupations(Operator& H, int emax);
+
  Operator NumberOp(ModelSpace& modelspace, int n, int l, int j2, int tz2);
  Operator NumberOpAlln(ModelSpace& modelspace, int l, int j2, int tz2);
  Operator PSquaredOp(ModelSpace& modelspace);
@@ -42,6 +45,10 @@ namespace imsrg_util
  Operator Isospin2_Op(ModelSpace& modelspace);
  Operator AllowedFermi_Op(ModelSpace& modelspace);
  Operator AllowedGamowTeller_Op(ModelSpace& modelspace);
+ Operator Sigma_Op(ModelSpace& modelspace);
+ Operator Sigma_p_Op(ModelSpace& modelspace);
+ Operator Sigma_n_Op(ModelSpace& modelspace);
+ Operator RadialOverlap(ModelSpace& modelspace);
 
  Operator Single_Ref_1B_Density_Matrix(ModelSpace& modelspace); // This doesn't work
  double Get_Charge_Density(Operator& DM, double r);  // This doesn't work
