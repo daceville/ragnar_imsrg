@@ -282,6 +282,7 @@ class ModelSpace
    vector<index_t> neutron_orbits;
    vector<index_t> electron_orbits;
    std::map<index_t,int> index3;
+   std::map<index_t,int> index4;
 
    vector<index_t> KetIndex_pp; 
    vector<index_t> KetIndex_ph;

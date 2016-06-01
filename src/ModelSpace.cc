@@ -1025,6 +1025,7 @@ int ModelSpace::GetTwoBodyChannelIndex(int j, int p, int t)
 
 void ModelSpace::SetupKets()
 {
+   cout << "Entering SetupKets()..." << endl;
    int index = 0;
 
    Kets.resize(Index2(norbits-1,norbits-1)+1);
@@ -1033,9 +1034,13 @@ void ModelSpace::SetupKets()
      for (int q=p;q<norbits;q++)
      {
         index = Index2(p,q);
+	if(not isNuclear){
+	   index4[index] = index4.size();
+	}
         Kets[index] = Ket(GetOrbit(p),GetOrbit(q));
      }
    }
+   cout << "Resized Kets, moving on to other stuff..." << endl;
   for (index_t index=0;index<Kets.size();++index)
   {
     Ket& ket = Kets[index];
