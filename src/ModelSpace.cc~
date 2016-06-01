@@ -28,6 +28,24 @@ Orbit::Orbit(const Orbit& orb)
 //: n(orb.n), l(orb.l), j2(orb.j2), tz2(orb.tz2),ph(orb.ph),io(orb.io),index(orb.index)
 {}
 
+//Electron_Orbit::~Electron_Orbit()
+//{
+// cout << "In Electron_Orbit destructor" << endl;
+//}
+
+//Electron_Orbit::Electron_Orbit()
+//: n(-1), l(-1), ml(-1), ms(-1), occ(-1), cvq(-1), index(-1)
+//{}
+
+//Electron_Orbit::Electron_Orbit(int n, int l, int ml, float ms, double occ, int cvq, int index)
+//: n(n), l(l), ml(ml), ms(ms), occ(occ), cvq(cvq), index(index)
+//{}
+
+//Electron_Orbit::Electron_Orbit(const Electron_Orbit& e_orb)
+//: n(e_orb.n), l(e_orb.l), ml(e_orb.ml), ms(e_orb.ms), occ(e_orb.occ), cvq(e_orb.cvq), index(e_orb.index)
+//{}
+
+
 
 
 //************************************************************************
@@ -346,6 +364,13 @@ ModelSpace::ModelSpace(int emax, string reference, string valence)
   Init(emax,reference,valence);
 }
 
+// Second most conventient (sp?) interface
+ModelSpace::ModelSpace(int emax, string reference, string valence, bool setNuclear)
+: Emax(emax), E2max(2*emax), E3max(3*emax), Lmax2(emax), Lmax3(emax), OneBodyJmax(0), TwoBodyJmax(0), ThreeBodyJmax(0),hbar_omega(20), isNuclear(true)
+{
+  Init(emax,reference,valence,setNuclear);
+}
+
 ModelSpace::ModelSpace(int emax, string valence)
 : Emax(emax), E2max(2*emax), E3max(3*emax), Lmax2(emax), Lmax3(emax), OneBodyJmax(0), TwoBodyJmax(0), ThreeBodyJmax(0),hbar_omega(20), isNuclear(true)
 {
@@ -354,6 +379,16 @@ ModelSpace::ModelSpace(int emax, string valence)
      Init(emax,itval->second[0],valence);
   else  // no valence space. we've got a single-reference.
      Init(emax,valence,valence);
+}
+
+ModelSpace::ModelSpace(int emax, string valence, bool setNuclear)
+: Emax(emax), E2max(2*emax), E3max(3*emax), Lmax2(emax), Lmax3(emax), OneBodyJmax(0), TwoBodyJmax(0), ThreeBodyJmax(0),hbar_omega(20), isNuclear(setNuclear)
+{
+  auto itval = ValenceSpaces.find(valence);
+  if ( itval != ValenceSpaces.end() ) // we've got a valence space
+     Init(emax,itval->second[0],valence,setNuclear);
+  else  // no valence space. we've got a single-reference.
+     Init(emax,valence,valence,setNuclear);
 }
 
 
@@ -398,6 +433,47 @@ void ModelSpace::Init(int emax, string reference, string valence)
   
 }
 
+// Same as above, but with setNuclear
+void ModelSpace::Init(int emax, string reference, string valence,bool setNuclear)
+{
+  
+  int Aref,Zref,Ac,Zc;
+  vector<index_t> valence_list, core_list;
+  map<index_t,double> hole_list,core_map;
+
+  GetAZfromString(reference,Aref,Zref);
+  hole_list = GetOrbitsAZ(Aref,Zref);
+
+  if (valence == "0hw-shell")
+  {
+    Get0hwSpace(Aref,Zref,core_list,valence_list);
+  }
+  else
+  {
+    auto itval = ValenceSpaces.find(valence);
+  
+    if ( itval != ValenceSpaces.end() ) // we've got a valence space
+    {
+       string core_string = itval->second[0];
+       GetAZfromString(core_string,Ac,Zc);
+       valence_list = String2Index(vector<string>(itval->second.begin()+1,itval->second.end()));
+    }
+    else  // no valence space. we've got a single-reference.
+    {
+       GetAZfromString(valence,Ac,Zc);
+    }
+  
+    core_map = GetOrbitsAZ(Ac,Zc);
+    for (auto& it_core : core_map) core_list.push_back(it_core.first);
+  }
+
+  target_mass = Aref;
+  target_Z = Zref;
+  cout << "About to pass setNuclear to Init" << endl;
+  Init(emax,hole_list,core_list,valence_list,setNuclear);
+  
+}
+
 
 // Specify the model space with strings of orbit lists.
 // Less convenient, but more flexible
@@ -413,6 +489,21 @@ void ModelSpace::Init(int emax, vector<string> hole_list, vector<string> core_li
    map<index_t,double> hole_map;
    for (auto& h : String2Index(hole_list)) hole_map[h] = 1.0;
   Init(emax, hole_map, String2Index(core_list), String2Index(valence_list) );
+}
+
+//Same as above, but with SetNuclear
+void ModelSpace::Init(int emax, vector<string> hole_list, vector<string> core_list, vector<string> valence_list, bool setNuclear)
+{
+   cout << "Creating a model space with Emax = " << Emax << "  and hole orbits [";
+   for (auto& h : hole_list)  cout << h << " ";
+   cout << "]   and core orbits [";
+   for (auto& c : core_list)    cout << c << " ";
+   cout << "]   and valence orbits [";
+   for (auto& v : valence_list)   cout << v << " ";
+   cout << "]" << endl;
+   map<index_t,double> hole_map;
+   for (auto& h : String2Index(hole_list)) hole_map[h] = 1.0;
+  Init(emax, hole_map, String2Index(core_list), String2Index(valence_list), setNuclear);
 }
 
 // This is the Init which should inevitably be called
@@ -440,8 +531,94 @@ void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> c
    norbits = (Emax+1)*(Emax+2);
    Orbits.resize(norbits);
 
-   if (isNuclear) {
-      for (int N=0; N<=Emax; ++N)
+   if (isNuclear)
+   {
+      for (int N=0; N<=Emax; ++N) // N=0 for nuclear? Should this be Norbits?
+      {
+        for (int l=N; l>=0; l-=2)
+        {
+          int n = (N-l)/2;
+          for (int j2=2*l+1; j2>=2*l-1 and j2>0; j2-=2)
+          {
+            for (int tz : {-1, 1} )
+            {
+               double occ = 0;
+               int cvq = 2;
+               int indx = Index1(n,l,j2,tz);
+               if ( hole_list.find(indx) != hole_list.end()) occ = hole_list[indx];
+               if ( find(core_list.begin(), core_list.end(), indx) != core_list.end() ) cvq=0; // core orbit
+               if ( find(valence_list.begin(), valence_list.end(), indx) != valence_list.end() ) cvq=1; // valence orbit
+               AddOrbit(n,l,j2,tz,occ,cvq);
+            }
+          }
+        }
+      }
+      
+   } else if (not isNuclear)
+   { // build up Atomic orbits
+      for (int n=1; n <= Emax; n++) 
+      {
+         for (int l=0; l<n; l++)
+	 {
+            for (int j2=2*l+1; j2>=2*l-1 and j2>=0; j2-=2)
+	    {
+		for (int tz2=-1; tz2<=1; tz2+=2) // for (int tz2 : {-1, 1} ) Throws an error for some reason...
+		{
+               	   double occ = 0;
+ 	           int cvq = 2;
+		   int indx = Index1(n,l,j2,tz2); // Some indexing function is needed
+		   if ( hole_list.find(indx) != hole_list.end()) occ = hole_list[indx];
+		   if ( find(core_list.begin(), core_list.end(), indx) != core_list.end() ) cvq = 0; // core orbit
+		   if ( find(valence_list.begin(), valence_list.end(), indx) != valence_list.end() ) cvq = 1; // Valence
+		   AddOrbit(n,l,j2,tz2,occ,cvq);
+                }
+	    }
+	 }
+      }
+   }
+   Aref = 0;
+   Zref = 0;
+   for (auto& it_h : holes)
+   {
+      Orbit& oh = GetOrbit(it_h.first);
+      Aref += (oh.j2+1)*oh.occ;
+      if (oh.tz2 < 0) Zref += (oh.j2+1)*oh.occ;
+   }
+   SetupKets();
+}
+
+// This is the Init which should inevitably be called
+void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> core_list, vector<index_t> valence_list, bool setNuclear)
+{
+   cout << "Almost ready..." << isNuclear<<" becomes: "<<setNuclear<<endl;
+   Orbits.clear();
+   particles.clear();
+   holes.clear();
+   core.clear();
+   valence.clear();
+   qspace.clear();
+   proton_orbits.clear();
+   neutron_orbits.clear();
+   electron_orbits.clear();
+   OneBodyChannels.clear();
+   isNuclear = setNuclear;
+   emax = Emax;
+   cout << "Wheew! "<< isNuclear<<" isnow: "<<setNuclear<<endl;
+
+      // Make sure no orbits are both core and valence
+   for (auto& c : core_list)
+   {
+     if ( find(valence_list.begin(), valence_list.end(), c) != valence_list.end() )
+       cout << "!!!!!!!!!!!!! ModelSpace::Init : Conflicting definition. Orbit " << c << " is in core and valence    spaces." << endl;
+   }
+   
+   
+
+   if (isNuclear)
+   {
+      norbits = (Emax+1)*(Emax+2);
+      Orbits.resize(norbits);
+      for (int N=0; N<=Emax; ++N) // N=0 for nuclear? Should this be Norbits?
       {
         for (int l=N; l>=0; l-=2)
         {
@@ -465,19 +642,48 @@ void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> c
       Zref = 0;
       for (auto& it_h : holes)
       {
-        Orbit& oh = GetOrbit(it_h.first);
-        Aref += (oh.j2+1)*oh.occ;
-        if (oh.tz2 < 0) Zref += (oh.j2+1)*oh.occ;
+         //cout << it_h << endl;
+         //cout << "About to make orbit: GetOrbit("<<it_h.first<<endl;
+         Orbit& oh = GetOrbit(it_h.first);
+         Aref += (oh.j2+1)*oh.occ;
+         if (oh.tz2 < 0) Zref += (oh.j2+1)*oh.occ;
       }
-   } else if (not isNuclear) { // build up Atomic orbits
-      for (int N=0; N <= Emax; N++) {
-         for (int l=-N; l>=N; L++) {
-            for (double s=-1./2; s <=1./2; S++){
-               double j2
+   } else if (not isNuclear)
+   { // build up Atomic orbits
+      cout << "Did I make it?"<< endl;
+      norbits = 4*Emax*(Emax-1); // TODO: Perhaps change to a counter that goes up to norbits and stops.
+      Orbits.resize(norbits);
+      for (int n=1; n <= Emax; n++) 
+      {
+         for (int l=0; l<n; l++)
+	 {
+            for (int j2=2*l+1; j2>=2*l-1 and j2>=0; j2-=2)
+	    {
+		for (int tz2=-1; tz2<=1; tz2+=2) // for (int tz2 : {-1, 1} ) Throws an error for some reason...
+		{
+               	   double occ = 0;
+ 	           int cvq = 2;
+		   int indx = Index1(n,l,j2,tz2); // Some indexing function is needed
+		   index3[indx] = index3.size();
+		   cout << "Did I make it here? n=" << n << " l=" << l << " j2=" << j2 << " tz2=" << tz2 << " Index1=" << indx << " index3.size()=" << index3.size() << " index3[indx]=" << index3[indx] << endl;
+		   if ( hole_list.find(index3[indx]) != hole_list.end()) occ = hole_list[index3[indx]];
+		   cout << "after occ=..." << endl;
+		   if ( find(core_list.begin(), core_list.end(), index3[indx]) != core_list.end() ) cvq = 0; // core orbit
+		   cout << "after cvq=0" << endl;
+		   if ( find(valence_list.begin(), valence_list.end(), index3[indx]) != valence_list.end() ) cvq = 1; // Valence
+		   cout << "before AddOrbit("<<n<<","<<l<<","<<j2<<","<<tz2<<","<<occ<<","<<cvq<<")"<<endl;
+		   AddElectron_Orbit(n,l,j2,tz2,occ,cvq);
+		   cout << "after AddOrbit("<<n<<","<<l<<","<<j2<<","<<tz2<<","<<occ<<","<<cvq<<")"<<endl;
+                }
 	    }
 	 }
       }
+      //if (reference =="H1"){ // This is garbage, but we can handle it later
+         Zref=1;
+         Aref=0;
+      //}
    }
+   cout << "Can I get a what-what?" << endl;
    SetupKets();
 }
 
@@ -764,6 +970,34 @@ void ModelSpace::AddOrbit(int n, int l, int j2, int tz2, double occ, int cvq)
    OneBodyChannels[{l, j2, tz2}].push_back(ind);
 }
 
+void ModelSpace::AddElectron_Orbit(Orbit orb)
+{
+  AddElectron_Orbit(orb.n, orb.l, orb.j2, orb.tz2, orb.occ, orb.cvq);
+}
+
+void ModelSpace::AddElectron_Orbit(int n, int l, int j2, int tz2, double occ, int cvq)
+{
+   index_t indy = Index1(n, l, j2, tz2);
+   int ind = index3[indy];
+   Orbits[ind] = Orbit(n, l, j2, tz2, occ, cvq, ind);
+
+   if ( j2 > OneBodyJmax)
+   {
+      OneBodyJmax = j2;
+      TwoBodyJmax = j2;
+      ThreeBodyJmax = OneBodyJmax*3-2;
+      nTwoBodyChannels = 2*3*(TwoBodyJmax+1);
+   }
+
+   if ( occ < OCC_CUT ) particles.push_back(ind);
+   else holes[ind] = occ;
+   if ( cvq == 0 ) core.push_back(ind);
+   if ( cvq == 1 ) valence.push_back(ind);
+   if ( cvq == 2 ) qspace.push_back(ind);
+   electron_orbits.push_back(ind);
+
+   OneBodyChannels[{l, j2, tz2}].push_back(ind);
+}
 
 
 int ModelSpace::GetOrbitIndex(string orb)
@@ -860,6 +1094,7 @@ void ModelSpace::ClearVectors()
    qspace.clear();        
    proton_orbits.clear();  
    neutron_orbits.clear();
+   electron_orbits.clear();
    
    KetIndex_pp.clear();
    KetIndex_ph.clear();

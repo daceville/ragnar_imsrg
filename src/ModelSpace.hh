@@ -44,6 +44,24 @@ class Orbit
    // Methods
 };
 
+//class Electron_Orbit : public Orbit
+//{
+//   //Inherited class Electron_Orbit extends Orbit; Possibly remove this later
+//   //Fields
+//   int ml;
+//   float ms;
+//   
+//   //Constructors
+//   ~Electron_Orbit();
+//   Electron_Orbit();
+//   Electron_Orbit(int n, int l, int ml, float ms, double occ, int cvq, int index);
+//   Electron_Orbit(const Electron_Orbit&);
+//
+//   //Methods
+//   // None, yet.
+//
+//};
+
 
 
 
@@ -168,6 +186,8 @@ class ModelSpace
    ModelSpace(int emax, vector<string> hole_list, vector<string> core_list, vector<string> valence_list);
    ModelSpace(int emax, string reference, string valence);
    ModelSpace(int emax, string reference);
+   ModelSpace(int emax, string reference, string valence, bool setNuclear);
+   ModelSpace(int emax, string reference, bool setNuclear);
 
    // Overloaded operators
    ModelSpace operator=(const ModelSpace&); 
@@ -179,6 +199,10 @@ class ModelSpace
    void Init(int emax, map<index_t,double> hole_list, vector<index_t> core_list, vector<index_t> valence_list);
    void Init(int emax, vector<string> hole_list, vector<string> core_list, vector<string> valence_list);
 
+   void Init(int emax, string reference, string valence, bool setNuclear);
+   void Init(int emax, map<index_t,double> hole_list, vector<index_t> core_list, vector<index_t> valence_list, bool setNuclear);
+   void Init(int emax, vector<string> hole_list, vector<string> core_list, vector<string> valence_list, bool setNuclear);
+
 //   vector<index_t> GetOrbitsAZ(int A, int Z);
    map<index_t,double> GetOrbitsAZ(int A, int Z);
    void GetAZfromString(string str, int& A, int& Z);
@@ -188,6 +212,8 @@ class ModelSpace
    void SetupKets();
    void AddOrbit(Orbit orb);
    void AddOrbit(int n, int l, int j2, int tz2, double occ, int io);
+   void AddElectron_Orbit(Orbit orb);
+   void AddElectron_Orbit(int n, int l, int j2, int tz2, double occ, int cvq);
    // Setter/Getters
    Orbit& GetOrbit(int i) {return (Orbit&) Orbits[i];}; 
 //   Orbit& GetOrbit(int i) const {return (Orbit&) Orbits[i];}; 
@@ -255,6 +281,7 @@ class ModelSpace
    vector<index_t> proton_orbits;
    vector<index_t> neutron_orbits;
    vector<index_t> electron_orbits;
+   std::map<index_t,int> index3;
 
    vector<index_t> KetIndex_pp; 
    vector<index_t> KetIndex_ph;

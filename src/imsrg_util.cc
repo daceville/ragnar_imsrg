@@ -142,18 +142,23 @@ Operator KineticEnergy_Op(ModelSpace& modelspace)
    Operator T(modelspace);
    int norbits = modelspace.GetNumberOrbits();
    double hw = modelspace.GetHbarOmega();
-   for (int a=0;a<norbits;++a)
+   for (int a=0; a<norbits; ++a)
    {
       Orbit & oa = modelspace.GetOrbit(a);
-      T.OneBody(a,a) = 0.5 * hw * (2*oa.n + oa.l +3./2); 
+      T.OneBody(a,a) = 0.5 * hw * (oa.n + oa.l +1./2); 
+      cout << "Creating OneBody("<<a<<","<<a<<") with oa.n="<<oa.n<<" oa.l="<<oa.l<<" occ="<<oa.occ<< " cvq="<<oa.cvq<<endl;
       for ( int b : T.OneBodyChannels.at({oa.l,oa.j2,oa.tz2}) )
       {
          if (b<=a) continue;
          Orbit & ob = modelspace.GetOrbit(b);
-         if (oa.n == ob.n+1)
-            T.OneBody(a,b) = 0.5 * hw * sqrt( (oa.n)*(oa.n + oa.l +1./2));
-         else if (oa.n == ob.n-1)
-            T.OneBody(a,b) = 0.5 * hw * sqrt( (ob.n)*(ob.n + ob.l +1./2));
+         if (oa.n == ob.n+1){
+            T.OneBody(a,b) = 0.5 * hw * sqrt( (oa.n)*(oa.n + oa.l +1./2) ); // TODO: Check Atomic etc
+            //cout << "Creating OneBody("<<a<<","<<b<<") with oa.n="<<oa.n<<" oa.l="<<oa.l<<endl;
+	 }
+         else if (oa.n == ob.n-1){
+            T.OneBody(a,b) = 0.5 * hw * sqrt( (ob.n)*(ob.n + ob.l +1./2) ); // TODO: Check Atomic etc
+            //cout << "Creating OneBody("<<a<<","<<b<<") with ob.n="<<ob.n<<" ob.l="<<ob.l<<endl;
+	 }
          T.OneBody(b,a) = T.OneBody(a,b);
       }
    }
@@ -192,10 +197,11 @@ Operator KineticEnergy_Op(ModelSpace& modelspace)
    int A = modelspace.GetTargetMass();
    Operator TcmOp = Operator(modelspace);
    TcmOp.SetHermitian();
-   int Mu;
+   double Mu;
    // If we are in a nuclear system, use target mass, otherwise, use reduced mass;
    if(modelspace.GetNuclear()) Mu = A;
    else Mu = M_ELECTRON*A/(M_ELECTRON+A);
+   //cout << "This is Mu: " << Mu << endl;
 
    // One body piece = p**2/(2mA)
    int norb = modelspace.GetNumberOrbits();
@@ -858,6 +864,17 @@ Operator NeutronDensityAtR(ModelSpace& modelspace, double R)
   return Rho;
 }
 
+Operator ElectronDensityAtR(ModelSpace& modelspace, double R)
+{
+  Operator Rho(modelspace,0,0,0,2);
+  for ( auto i : modelspace.electron_orbits)
+  {
+     Orbit& oi = modelspace.GetOrbit(i);
+     Rho.OneBody(i,i) = HO_density(oi.n,oi.l,modelspace.GetHbarOmega(),R);
+  }
+  return Rho;
+}
+
 
 Operator RpSpinOrbitCorrection(ModelSpace& modelspace)
 {
@@ -1140,8 +1157,9 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
     return GT;
   }
 
-// Creates an operator that performs Z/r, using Kramers Relation for an atomic system
-// For orbital n, in an atom with Z protons, expectation of Z/r = (Z/a)*SUM(1/(n^2))
+// Creates an operator that performs <Z/r>, using Kramers Relation for an atomic system
+// In oscillator basis: RadialIntegral() with L=-1
+// In H basis: For orbital n, in an atom with Z protons, expectation of Z/r = (Z/a)*SUM(1/(n^2))
   Operator InverseR_Op(ModelSpace& modelspace)
   {
      Operator InvR(modelspace);
@@ -1151,11 +1169,14 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
         Orbit& oi = modelspace.GetOrbit(i);
         for (int j=0; j<norbits; j++)
 	{
-	   if (i==j) InvR.OneBody(i,j) = oi.occ/(oi.n * oi.n);
-	   else InvR.OneBody(i,j) = 0;
+	   //if (i==j) InvR.OneBody(i,j) = oi.occ/((oi.n+1) * (oi.n+1));
+	   Orbit& oj = modelspace.GetOrbit(j);
+	   InvR.OneBody(i,j) = 0-RadialIntegral(oi.n, oi.l, oj.n, oj.l, -1); // consider n +/- 1; selection rules
 	}
      }
-     return InvR * modelspace.GetTargetZ() / ( BOHR_RADIUS );
+     // 1/137 comes from fine struct const {alpha} = 1/137 = e^2/(4pi{epsilon}{hbar}c)
+     // Therefore Ze^2/(4pi{epsilon}) = Z{hbar}{c}{alpha}; I can't recall why I put Bohr rad in there...
+     return InvR * modelspace.GetTargetZ() * HBARC/(137);// * BOHR_RADIUS);
   }
 
   void Reduce(Operator& X)

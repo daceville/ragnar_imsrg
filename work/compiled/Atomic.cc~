@@ -83,7 +83,10 @@ int main(int argc, char** argv)
   ReadWrite rw;
   rw.SetLECs_preset(LECs);
   rw.SetScratchDir(scratch);
-  ModelSpace modelspace = reference=="default" ? ModelSpace(eMax,valence_space) : ModelSpace(eMax,reference,valence_space);
+  bool setNuclear = false;
+  cout << "About to construct modelspace"<<endl;
+  ModelSpace modelspace = ModelSpace(eMax,reference,valence_space,setNuclear);
+  //ModelSpace modelspace = reference=="default" ? ModelSpace(eMax,valence_space,setNuclear) : ModelSpace(eMax,reference,valence_space,setNuclear);
   modelspace.SetNuclear(false);
 
   if (nsteps < 0)
@@ -108,38 +111,40 @@ int main(int argc, char** argv)
     cout << "Using Brueckner flavor of BCH" << endl;
   }
 
-  cout << "Reading interactions..." << endl;
+//  cout << "Reading interactions..." << endl;
+//
+//  #pragma omp parallel sections 
+//  {
+//    #pragma omp section
+//    {
+//    if (fmt2 == "me2j")
+//      rw.ReadBareTBME_Darmstadt(inputtbme, Hbare,file2e1max,file2e2max,file2lmax);
+//    else if (fmt2 == "navratil" or fmt2 == "Navratil")
+//      rw.ReadBareTBME_Navratil(inputtbme, Hbare);
+//    else if (fmt2 == "oslo" )
+//      rw.ReadTBME_Oslo(inputtbme, Hbare);
+//    else if (fmt2 == "oakridge" )
+//      rw.ReadTBME_OakRidge(inputtbme, Hbare);
+//     cout << "done reading 2N" << endl;
+//    }
+//  
+//    #pragma omp section
+//    if (Hbare.particle_rank >=3)
+//    {
+//      rw.Read_Darmstadt_3body(input3bme, Hbare, file3e1max,file3e2max,file3e3max);
+//      cout << "done reading 3N" << endl;
+//    }  
+//  }
 
-  #pragma omp parallel sections 
-  {
-    #pragma omp section
-    {
-    if (fmt2 == "me2j")
-      rw.ReadBareTBME_Darmstadt(inputtbme, Hbare,file2e1max,file2e2max,file2lmax);
-    else if (fmt2 == "navratil" or fmt2 == "Navratil")
-      rw.ReadBareTBME_Navratil(inputtbme, Hbare);
-    else if (fmt2 == "oslo" )
-      rw.ReadTBME_Oslo(inputtbme, Hbare);
-    else if (fmt2 == "oakridge" )
-      rw.ReadTBME_OakRidge(inputtbme, Hbare);
-     cout << "done reading 2N" << endl;
-    }
-  
-    #pragma omp section
-    if (Hbare.particle_rank >=3)
-    {
-      rw.Read_Darmstadt_3body(input3bme, Hbare, file3e1max,file3e2max,file3e3max);
-      cout << "done reading 3N" << endl;
-    }  
-  }
-
-  Hbare += Trel_Op(modelspace);
+  //Hbare += Trel_Op(modelspace) + InverseR_Op(modelspace);
+  Hbare += KineticEnergy_Op(modelspace) + InverseR_Op(modelspace);
   if (abs(BetaCM)>1e-3)
   {
     Hbare += BetaCM * HCM_Op(modelspace);
   }
-
+  //Hbare.OneBody.print();
   HartreeFock hf(Hbare);
+  cout << "done Converting Hbare to HF basis" << endl;
   hf.Solve();
   cout << "EHF = " << hf.EHF << endl;
   
@@ -171,7 +176,8 @@ int main(int argc, char** argv)
       else if (opname == "Rn2")          ops.emplace_back( Rn2_corrected_Op(modelspace,modelspace.GetTargetMass(),modelspace.GetTargetZ()) );
       else if (opname == "Rm2")          ops.emplace_back( Rm2_corrected_Op(modelspace,modelspace.GetTargetMass(),modelspace.GetTargetZ()) );
       else if (opname == "TCM_Op")     	 ops.emplace_back( TCM_Op(modelspace) );
-      else if (opname == "InverseR")ops.emplace_back( InverseR_Op(modelspace) );
+      else if (opname == "KineticEnergy")ops.emplace_back( KineticEnergy_Op(modelspace) );
+      else if (opname == "InverseR")     ops.emplace_back( InverseR_Op(modelspace) );
       else if (opname == "E2")           ops.emplace_back( ElectricMultipoleOp(modelspace,2) );
       else if (opname == "M1")           ops.emplace_back( MagneticMultipoleOp(modelspace,1) );
       else if (opname == "Fermi")        ops.emplace_back( AllowedFermi_Op(modelspace) );
@@ -348,6 +354,7 @@ int main(int argc, char** argv)
 //  if (reference != "default"  and reference != valence_space)
   ModelSpace ms2(modelspace);
   bool renormal_order = false;
+  cout << "The size of the Valence space is: " << modelspace.valence.size() << endl;
   if (modelspace.valence.size() > 0 )
   {
     renormal_order = modelspace.holes.size() != modelspace.core.size();
@@ -373,7 +380,7 @@ int main(int argc, char** argv)
     cout << "Undoing NO wrt A=" << modelspace.GetAref() << " Z=" << modelspace.GetZref() << endl;
     Hbare = Hbare.UndoNormalOrdering();
 
-    ms2.SetReference(ms2.core); // chage the reference determinant
+    ms2.SetReference(ms2.core); // change the reference determinant
     Hbare.SetModelSpace(ms2);
 
     cout << "Doing NO wrt A=" << ms2.GetAref() << " Z=" << ms2.GetZref() << "  norbits = " << ms2.GetNumberOrbits() << endl;
@@ -449,9 +456,6 @@ int main(int argc, char** argv)
       }
     }
   }
-
-
-
 
   Hbare.PrintTimes();
  

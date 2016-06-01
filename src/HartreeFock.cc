@@ -17,7 +17,7 @@ HartreeFock::HartreeFock(Operator& hbare)
     tolerance(1e-8), convergence_ediff(7,0), convergence_EHF(7,0)
 {
    int norbits = modelspace->GetNumberOrbits();
-   bool isNuclear = modelspace->GetNuclear();
+   //bool isNuclear = modelspace->GetNuclear();
 
    
    C             = arma::mat(norbits,norbits,arma::fill::eye);
@@ -55,10 +55,11 @@ HartreeFock::HartreeFock(Operator& hbare)
 
       
    //}
-
+   //cout << "Done building basic HF basis; updating Density Matrix." << endl;
    UpdateDensityMatrix();
+   //cout << "Done updating density Matrix, updating F." << endl;
    UpdateF();
-
+   //cout << "Done updating F, all done!" << endl;
 }
 
 
@@ -72,6 +73,8 @@ void HartreeFock::Solve()
 {
    iterations = 0; // counter so we don't go on forever
    int maxiter = 1000;
+
+   //F.print();
 
    for (iterations=0; iterations<maxiter; ++iterations)
    {
@@ -412,6 +415,8 @@ void HartreeFock::UpdateF()
    F = KE + Vij + 0.5*V3ij;
 
    profiler.timer["HF_UpdateF"] += omp_get_wtime() - start_time;
+   //cout << "this is F: " << endl;
+   //F.print();
 }
 
 

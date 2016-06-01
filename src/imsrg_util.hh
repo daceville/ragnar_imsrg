@@ -28,6 +28,7 @@ namespace imsrg_util
  Operator TCM_Op(ModelSpace& modelspace);
  Operator HCM_Op(ModelSpace& modelspace);
 
+ Operator KineticEnergy_Op(ModelSpace& modelspace);
  Operator R2CM_Op(ModelSpace& modelspace);
  Operator Rp2_corrected_Op(ModelSpace& modelspace, int A, int Z);
  Operator Rn2_corrected_Op(ModelSpace& modelspace, int A, int Z);
@@ -38,6 +39,7 @@ namespace imsrg_util
  Operator R2_2body_Op(ModelSpace& modelspace, string option);
  Operator ProtonDensityAtR(ModelSpace& modelspace, double R);
  Operator NeutronDensityAtR(ModelSpace& modelspace, double R);
+ Operator ElectronDensityAtR(ModelSpace& modelspace, double R);
  Operator RpSpinOrbitCorrection(ModelSpace& modelspace);
  Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<index_t> index_list);
 
