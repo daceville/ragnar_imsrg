@@ -100,10 +100,12 @@ int main(int argc, char** argv)
   if (lmax3>0)
      modelspace.SetLmax3(lmax3);
   
-  cout << "Making the operator..." << endl;
   int particle_rank = input3bme=="none" ? 2 : 3;
   Operator Hbare = Operator(modelspace,0,0,0,particle_rank);
   Hbare.SetHermitian();
+  Hbare.ZeroBody *= 0;
+  Hbare.OneBody *= 0;
+  Hbare.TwoBody *= 0;
 
   if (use_brueckner_bch == "true" or use_brueckner_bch == "True")
   {
@@ -138,11 +140,13 @@ int main(int argc, char** argv)
 
   //Hbare += Trel_Op(modelspace) + InverseR_Op(modelspace);
   Hbare += KineticEnergy_Op(modelspace) + InverseR_Op(modelspace);
+  cout << "Gsl handler lost here?" << endl;
   if (abs(BetaCM)>1e-3)
   {
     Hbare += BetaCM * HCM_Op(modelspace);
   }
   //Hbare.OneBody.print();
+  cout << "About to create hf(Hbare)" << endl;
   HartreeFock hf(Hbare);
   cout << "done Converting Hbare to HF basis" << endl;
   hf.Solve();

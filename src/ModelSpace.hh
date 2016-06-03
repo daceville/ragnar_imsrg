@@ -205,6 +205,7 @@ class ModelSpace
 
 //   vector<index_t> GetOrbitsAZ(int A, int Z);
    map<index_t,double> GetOrbitsAZ(int A, int Z);
+   map<index_t,double> GetOrbitsE(int E);
    void GetAZfromString(string str, int& A, int& Z);
    vector<index_t> String2Index( vector<string> vs );
    void Get0hwSpace(int Aref, int Zref, vector<index_t>& core_list, vector<index_t>& valence_list);

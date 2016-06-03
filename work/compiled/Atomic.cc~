@@ -87,7 +87,7 @@ int main(int argc, char** argv)
   cout << "About to construct modelspace"<<endl;
   ModelSpace modelspace = ModelSpace(eMax,reference,valence_space,setNuclear);
   //ModelSpace modelspace = reference=="default" ? ModelSpace(eMax,valence_space,setNuclear) : ModelSpace(eMax,reference,valence_space,setNuclear);
-  modelspace.SetNuclear(false);
+  //modelspace.SetNuclear(false);
 
   if (nsteps < 0)
     nsteps = modelspace.valence.size()>0 ? 2 : 1;
@@ -100,11 +100,15 @@ int main(int argc, char** argv)
   if (lmax3>0)
      modelspace.SetLmax3(lmax3);
   
-  cout << "Making the operator..." << endl;
   int particle_rank = input3bme=="none" ? 2 : 3;
   Operator Hbare = Operator(modelspace,0,0,0,particle_rank);
+  
   Hbare.SetHermitian();
 
+  Hbare.ZeroBody *= 0;
+  Hbare.OneBody *= 0;
+  Hbare.TwoBody *= 0;
+  cout << "Gsl handler lost here?" << endl;
   if (use_brueckner_bch == "true" or use_brueckner_bch == "True")
   {
     Hbare.SetUseBruecknerBCH(true);
@@ -143,6 +147,7 @@ int main(int argc, char** argv)
     Hbare += BetaCM * HCM_Op(modelspace);
   }
   //Hbare.OneBody.print();
+  cout << "About to create hf(Hbare)" << endl;
   HartreeFock hf(Hbare);
   cout << "done Converting Hbare to HF basis" << endl;
   hf.Solve();

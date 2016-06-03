@@ -139,6 +139,7 @@ double HO_Radial_psi(int n, int l, double hw, double r)
 
 Operator KineticEnergy_Op(ModelSpace& modelspace)
 {
+   cout << "About to make T" << endl;
    Operator T(modelspace);
    int norbits = modelspace.GetNumberOrbits();
    double hw = modelspace.GetHbarOmega();
@@ -146,7 +147,8 @@ Operator KineticEnergy_Op(ModelSpace& modelspace)
    {
       Orbit & oa = modelspace.GetOrbit(a);
       T.OneBody(a,a) = 0.5 * hw * (oa.n + oa.l +1./2); 
-      cout << "Creating OneBody("<<a<<","<<a<<") with oa.n="<<oa.n<<" oa.l="<<oa.l<<" occ="<<oa.occ<< " cvq="<<oa.cvq<<endl;
+      cout << "Adding " << T.OneBody(a,a) << "eV to the total T." << endl;
+      //cout << "Creating OneBody("<<a<<","<<a<<") with oa.n="<<oa.n<<" oa.l="<<oa.l<<" occ="<<oa.occ<< " cvq="<<oa.cvq<<endl;
       for ( int b : T.OneBodyChannels.at({oa.l,oa.j2,oa.tz2}) )
       {
          if (b<=a) continue;
@@ -159,6 +161,7 @@ Operator KineticEnergy_Op(ModelSpace& modelspace)
             T.OneBody(a,b) = 0.5 * hw * sqrt( (ob.n)*(ob.n + ob.l +1./2) ); // TODO: Check Atomic etc
             //cout << "Creating OneBody("<<a<<","<<b<<") with ob.n="<<ob.n<<" ob.l="<<ob.l<<endl;
 	 }
+	 cout << "Adding " << T.OneBody(a,b) << "eV to the total T." << endl;
          T.OneBody(b,a) = T.OneBody(a,b);
       }
    }
@@ -1162,6 +1165,7 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
 // In H basis: For orbital n, in an atom with Z protons, expectation of Z/r = (Z/a)*SUM(1/(n^2))
   Operator InverseR_Op(ModelSpace& modelspace)
   {
+     cout << "About to make V" << endl;
      Operator InvR(modelspace);
      int norbits = modelspace.GetNumberOrbits();
      for (int i=0; i<norbits; i++)
@@ -1169,13 +1173,17 @@ Operator FourierBesselCoeff(ModelSpace& modelspace, int nu, double R, vector<ind
         Orbit& oi = modelspace.GetOrbit(i);
         for (int j=0; j<norbits; j++)
 	{
+	   cout << "i=" << i << " j=" << j << endl;
 	   //if (i==j) InvR.OneBody(i,j) = oi.occ/((oi.n+1) * (oi.n+1));
 	   Orbit& oj = modelspace.GetOrbit(j);
+	   cout << "oi.n=" << oi.n << " oi.l=" << oi.l << endl;
+	   cout << "oj.n=" << oj.n << " oj.l=" << oj.l << endl;
 	   InvR.OneBody(i,j) = 0-RadialIntegral(oi.n, oi.l, oj.n, oj.l, -1); // consider n +/- 1; selection rules
 	}
      }
      // 1/137 comes from fine struct const {alpha} = 1/137 = e^2/(4pi{epsilon}{hbar}c)
      // Therefore Ze^2/(4pi{epsilon}) = Z{hbar}{c}{alpha}; I can't recall why I put Bohr rad in there...
+     cout << "Made V, moving on." << endl;
      return InvR * modelspace.GetTargetZ() * HBARC/(137);// * BOHR_RADIUS);
   }
 

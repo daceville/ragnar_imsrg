@@ -10,12 +10,13 @@ stop=1
 
 for ((A=$start;A<=$stop;A++)); do
 
-hw=54.422
+hw=27.211
 valence_space=s-shell
 reference=H1
 smax=200
-emax=5
+emax=2
 e3max=12
+lmax3=2
 method=HF
 basis=oscillator
 omega_norm_max=0.25

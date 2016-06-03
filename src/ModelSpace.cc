@@ -103,8 +103,9 @@ void TwoBodyChannel::Initialize(int N, ModelSpace *ms)
    NumberKets = 0;
    int nk = modelspace->GetNumberKets();
    KetMap.resize(nk,-1); // set all values to -1
-   for (int i=0;i<nk;i++)
+   for (int i=1;i<nk;i++)
    {
+      //cout << "Getting ket at i="<<i << endl;
       Ket &ket = modelspace->GetKet(i);
       if ( CheckChannel_ket(ket) )
       {
@@ -434,15 +435,15 @@ void ModelSpace::Init(int emax, string reference, string valence)
 }
 
 // Same as above, but with setNuclear
-void ModelSpace::Init(int emax, string reference, string valence,bool setNuclear)
+void ModelSpace::Init(int emax, string reference, string valence, bool setNuclear)
 {
-  
   int Aref,Zref,Ac,Zc;
   vector<index_t> valence_list, core_list;
   map<index_t,double> hole_list,core_map;
 
   GetAZfromString(reference,Aref,Zref);
-  hole_list = GetOrbitsAZ(Aref,Zref);
+  if(setNuclear) hole_list = GetOrbitsAZ(Aref,Zref);
+  else hole_list = GetOrbitsE(Zref); // Assumes number of electrons = Z
 
   if (valence == "0hw-shell")
   {
@@ -463,13 +464,13 @@ void ModelSpace::Init(int emax, string reference, string valence,bool setNuclear
        GetAZfromString(valence,Ac,Zc);
     }
   
-    core_map = GetOrbitsAZ(Ac,Zc);
+    if (setNuclear) core_map = GetOrbitsAZ(Ac,Zc);
+    else core_map = GetOrbitsE(Zc); // Assumes number of electrons is total protons
     for (auto& it_core : core_map) core_list.push_back(it_core.first);
   }
 
   target_mass = Aref;
   target_Z = Zref;
-  cout << "About to pass setNuclear to Init" << endl;
   Init(emax,hole_list,core_list,valence_list,setNuclear);
   
 }
@@ -554,7 +555,7 @@ void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> c
         }
       }
       
-   } else if (not isNuclear)
+   } else if (not isNuclear) // Get to this later
    { // build up Atomic orbits
       for (int n=1; n <= Emax; n++) 
       {
@@ -562,11 +563,11 @@ void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> c
 	 {
             for (int j2=2*l+1; j2>=2*l-1 and j2>=0; j2-=2)
 	    {
-		for (int tz2=-1; tz2<=1; tz2+=2) // for (int tz2 : {-1, 1} ) Throws an error for some reason...
+		for (int tz2=-1; tz2<=1; tz2+=2)
 		{
                	   double occ = 0;
  	           int cvq = 2;
-		   int indx = Index1(n,l,j2,tz2); // Some indexing function is needed
+		   int indx = Index1(n,l,j2,tz2);
 		   if ( hole_list.find(indx) != hole_list.end()) occ = hole_list[indx];
 		   if ( find(core_list.begin(), core_list.end(), indx) != core_list.end() ) cvq = 0; // core orbit
 		   if ( find(valence_list.begin(), valence_list.end(), indx) != valence_list.end() ) cvq = 1; // Valence
@@ -590,7 +591,6 @@ void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> c
 // This is the Init which should inevitably be called
 void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> core_list, vector<index_t> valence_list, bool setNuclear)
 {
-   cout << "Almost ready..." << isNuclear<<" becomes: "<<setNuclear<<endl;
    Orbits.clear();
    particles.clear();
    holes.clear();
@@ -603,7 +603,6 @@ void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> c
    OneBodyChannels.clear();
    isNuclear = setNuclear;
    emax = Emax;
-   cout << "Wheew! "<< isNuclear<<" isnow: "<<setNuclear<<endl;
 
       // Make sure no orbits are both core and valence
    for (auto& c : core_list)
@@ -618,7 +617,7 @@ void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> c
    {
       norbits = (Emax+1)*(Emax+2);
       Orbits.resize(norbits);
-      for (int N=0; N<=Emax; ++N) // N=0 for nuclear? Should this be Norbits?
+      for (int N=0; N<=Emax; ++N)
       {
         for (int l=N; l>=0; l-=2)
         {
@@ -642,38 +641,31 @@ void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> c
       Zref = 0;
       for (auto& it_h : holes)
       {
-         //cout << it_h << endl;
-         //cout << "About to make orbit: GetOrbit("<<it_h.first<<endl;
          Orbit& oh = GetOrbit(it_h.first);
          Aref += (oh.j2+1)*oh.occ;
          if (oh.tz2 < 0) Zref += (oh.j2+1)*oh.occ;
       }
    } else if (not isNuclear)
    { // build up Atomic orbits
-      cout << "Did I make it?"<< endl;
       norbits = 2*Emax*Emax; // TODO: Perhaps change to a counter that goes up to norbits and stops.
       Orbits.resize(norbits);
       for (int n=1; n <= Emax; n++) 
       {
          for (int l=0; l<n; l++)
 	 {
-            for (int j2=2*l+1; j2>=2*l-1 and j2>=0; j2-=2)
+	    //int n = (N-l)/2;
+            for (int j2=2*l-1; j2<=2*l+1 and j2>=0; j2+=2)
 	    {
 		for (int tz2=-1; tz2<=1; tz2+=2) // for (int tz2 : {-1, 1} ) Throws an error for some reason...
 		{
                	   double occ = 0;
  	           int cvq = 2;
-		   int indx = Index1(n,l,j2,tz2); // Some indexing function is needed
-		   index3[indx] = index3.size();
-		   cout << "Did I make it here? n=" << n << " l=" << l << " j2=" << j2 << " tz2=" << tz2 << " Index1=" << indx << " index3.size()=" << index3.size() << " index3[indx]=" << index3[indx] << endl;
+		   int indx = Index1(n,l,j2,tz2);
+		   index3[indx] = index3.size()-1;
 		   if ( hole_list.find(index3[indx]) != hole_list.end()) occ = hole_list[index3[indx]];
-		   cout << "after occ=..." << endl;
 		   if ( find(core_list.begin(), core_list.end(), index3[indx]) != core_list.end() ) cvq = 0; // core orbit
-		   cout << "after cvq=0" << endl;
 		   if ( find(valence_list.begin(), valence_list.end(), index3[indx]) != valence_list.end() ) cvq = 1; // Valence
-		   cout << "before AddOrbit("<<n<<","<<l<<","<<j2<<","<<tz2<<","<<occ<<","<<cvq<<")"<<endl;
 		   AddElectron_Orbit(n,l,j2,tz2,occ,cvq);
-		   cout << "after AddOrbit("<<n<<","<<l<<","<<j2<<","<<tz2<<","<<occ<<","<<cvq<<")"<<endl;
                 }
 	    }
 	 }
@@ -683,7 +675,6 @@ void ModelSpace::Init(int emax, map<index_t,double> hole_list, vector<index_t> c
          Aref=0;
       //}
    }
-   cout << "Can I get a what-what?" << endl;
    SetupKets();
 }
 
@@ -742,35 +733,68 @@ map<index_t,double> ModelSpace::GetOrbitsAZ(int A, int Z)
   int zz = 0;
   int nn = 0; // unfortunate there are so many n's here...
   map<index_t,double> holesAZ;
-  for (int N=0; N<=Emax; ++N)
-  {
-    for (int g=2*N+1;g>=-2*N;g-=4)
-    {
-      int j2 = abs(g);
-      int l = g<0 ? (j2+1)/2 : (j2-1)/2;
-      int n = (N-l)/2;
 
-      if (zz < Z)
-      {
-        int dz = min(Z-zz,j2+1);
-        holesAZ[Index1(n,l,j2,-1)] = dz/(j2+1.0);
-        zz += dz;
-      }
-      if (nn < A-Z)
-      {
-        int dn = min(A-Z-nn,j2+1);
-        holesAZ[Index1(n,l,j2,1)] = dn/(j2+1.0);
-        nn += dn;
-      }
-      if (zz==Z and nn==A-Z)
-      {
+   for (int N=0; N<=Emax; ++N)
+   {
+     for (int g=2*N+1;g>=-2*N;g-=4)
+     {
+       int j2 = abs(g);
+       int l = g<0 ? (j2+1)/2 : (j2-1)/2;
+       int n = (N-l)/2;
+
+       if (zz < Z)
+       {
+         int dz = min(Z-zz,j2+1);
+         holesAZ[Index1(n,l,j2,-1)] = dz/(j2+1.0);
+         zz += dz;
+       }
+       if (nn < A-Z)
+       {
+         int dn = min(A-Z-nn,j2+1);
+         holesAZ[Index1(n,l,j2,1)] = dn/(j2+1.0);
+         nn += dn;
+       }
+       if (zz==Z and nn==A-Z)
+       {
          return holesAZ; // We're all done here.
-      }
+       }
     }
   }
-  cout << "Trouble! Model space not big enough to fill A=" << A << " Z="<< Z << "  emax = " << Emax << endl;
-  return holesAZ;
 
+   cout << "Trouble! Model space not big enough to fill A=" << A << " Z=" << Z << "  emax = " << Emax << endl;
+   return holesAZ;
+
+}
+
+// Fill Orbitals of atom with E electrons (I believe this should handle ions).
+map<index_t,double> ModelSpace::GetOrbitsE(int E){
+   int ee = 0;
+   map<index_t,double> holesE;
+   for (int n=1; n <= Emax; n++) // This may be wrong
+   {
+      for (int l=0; l <= n; l++)
+      {
+	 for (int g=2*l-1; g<=2*l+1; g+=2)
+	 {
+	    for (int tz2=-1; tz2<=1; tz2+=2)
+	    {
+	       if (ee < E)
+	       {
+		  int j2 = abs(g);
+		  int de = min(E-ee, j2+1);
+		  holesE[index3[Index1(n,l,j2,tz2)]] = de/(j2+1.0);
+		  ee += de;
+	       }
+	       if (ee == E)
+	       {
+		  return holesE;
+	       }
+	    }
+	 }	     
+      }
+   }
+   cout << "Trouble! Model space not big enough to fill E=" << E << " with Emax=" << Emax << endl;
+   return holesE;
 }
 
 
@@ -804,7 +828,6 @@ void ModelSpace::Get0hwSpace(int Aref, int Zref, vector<index_t>& core_list, vec
       valence_list.push_back( GetOrbitIndex( (OSC_neutrons-L)/2, L, j2, 1) );
     }
   }
-
 }
 
 
@@ -1025,7 +1048,7 @@ int ModelSpace::GetTwoBodyChannelIndex(int j, int p, int t)
 
 void ModelSpace::SetupKets()
 {
-   cout << "Entering SetupKets()..." << endl;
+   //cout << "Entering SetupKets()..." << endl;
    int index = 0;
 
    Kets.resize(Index2(norbits-1,norbits-1)+1);
@@ -1035,13 +1058,15 @@ void ModelSpace::SetupKets()
      {
         index = Index2(p,q);
 	if(not isNuclear){
-	   index4[index] = index4.size();
-	}
-        Kets[index] = Ket(GetOrbit(p),GetOrbit(q));
+	   index4[index4.size()] = index-1;
+	   Kets[index4.size()] = Ket(GetOrbit(p),GetOrbit(q));
+	} else {
+	   Kets[index] = Ket(GetOrbit(p),GetOrbit(q));
+        }
      }
    }
    cout << "Resized Kets, moving on to other stuff..." << endl;
-  for (index_t index=0;index<Kets.size();++index)
+  for (index_t index=1;index<Kets.size();++index)
   {
     Ket& ket = Kets[index];
     int Tz = (ket.op->tz2 + ket.oq->tz2)/2;
@@ -1068,25 +1093,29 @@ void ModelSpace::SetupKets()
     {
        KetIndex_hh.push_back(index);
        Ket_occ_hh.push_back(occp*occq);
+       
        Ket_unocc_hh.push_back((1-occp)*(1-occq));
     }
    }
-
+   //cout << "About to sort Channels; nTwoBodyChannels="<<nTwoBodyChannels << endl;
    SortedTwoBodyChannels.resize(nTwoBodyChannels);
    SortedTwoBodyChannels_CC.resize(nTwoBodyChannels);
-   for (int ch=0;ch<nTwoBodyChannels;++ch)
+   for (int ch=0; ch < nTwoBodyChannels; ++ch)
    {
+      //cout << "About to sort channel ch=" << ch << " TwoBodyChannels.size()="<<TwoBodyChannels.size()<<endl;
       TwoBodyChannels.push_back(move(TwoBodyChannel(ch,this)));
       TwoBodyChannels_CC.push_back(move(TwoBodyChannel_CC(ch,this)));
       SortedTwoBodyChannels[ch] = ch;
       SortedTwoBodyChannels_CC[ch] = ch;
    }
+
    // Sort the two body channels in descending order of matrix dimension and discard the size-0 ones.
    // Hopefully this can help with load balancing.
    sort(SortedTwoBodyChannels.begin(),SortedTwoBodyChannels.end(),[this](int i, int j){ return TwoBodyChannels[i].GetNumberKets() > TwoBodyChannels[j].GetNumberKets(); }  );
    sort(SortedTwoBodyChannels_CC.begin(),SortedTwoBodyChannels_CC.end(),[this](int i, int j){ return TwoBodyChannels_CC[i].GetNumberKets() > TwoBodyChannels_CC[j].GetNumberKets(); }  );
    while (  TwoBodyChannels[ SortedTwoBodyChannels.back() ].GetNumberKets() <1 ) SortedTwoBodyChannels.pop_back();
    while (  TwoBodyChannels_CC[ SortedTwoBodyChannels_CC.back() ].GetNumberKets() <1 ) SortedTwoBodyChannels_CC.pop_back();
+   //cout << "Did I make it here?" << endl;
 }
 
 
